@@ -1,0 +1,12 @@
+import type { Config } from "drizzle-kit"
+
+export default {
+    schema: "./src/db/schema.ts",
+    dialect: "turso",
+    dbCredentials: {
+        url: process.env.TURSO_DATABASE!,
+        authToken: process.env.TURSO_AUTH_TOKEN!,
+    },
+    verbose: true,
+    strict: true
+} satisfies Config
