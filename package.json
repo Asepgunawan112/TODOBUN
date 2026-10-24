@@ -3,9 +3,12 @@
   "version": "1.0.50",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "bun run --watch src/index.ts"
+    "dev": "bun run --watch src/index.tsx"
   },
   "dependencies": {
+    "@elysia/html": "^1.4.1",
+    "@elysiajs/html": "^1.4.2",
+    "@kitajs/html": "^4.2.13",
     "@libsql/client": "^0.18.0",
     "drizzle-orm": "^0.45.4",
     "elysia": "latest"
