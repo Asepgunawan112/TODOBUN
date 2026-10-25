@@ -1,6 +1,9 @@
 import { Elysia, t } from "elysia";
 import { html } from "@elysiajs/html";
 import Html from "@kitajs/html";
+import {db} from "./db/index"
+import {Todo, todos} from "./db/schema"
+import { eq } from "drizzle-orm";
 
 const BaseHtml = ({ children }: Html.PropsWithChildren) => (
   <html lang="en">
@@ -8,54 +11,24 @@ const BaseHtml = ({ children }: Html.PropsWithChildren) => (
       <meta charset="UTF-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-      <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.11/dist/htmx.min.js" integrity="sha384-2OatzQy1H+Zd/IIrjr1TcuDGqLXeHhbooAyJY1KdQMKnr4LZ22k31GBLdYKHmVjg" crossorigin="anonymous"></script>
+      <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.11/dist/htmx.min.js"></script>
       <title>BETH STACK</title>
     </head>
     {children}
   </html>
 );
 
-type Todo = {
-  id: number,
-  title: string,
-  deadline: Date,
-  note?: string,
-  isCompleted: boolean,
-  createdAt: Date,
-  updatedAt: Date,
-}
 
-const db:Todo[] = [
-  {
-    id: 1,
-    title: "Todo 1",
-    deadline: new Date("10-31-2026"),
-    note: "Note 1",
-    isCompleted: false,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    id: 2,
-    title: "Todo 2",
-    deadline: new Date(),
-    note: "Note 2",
-    isCompleted: false,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-]
 
 function TodoForm(){
   return (
-    <form class="flex flex-row spcae-x-3 w-full max-w-2xl px-4" hx-post="/todo" hx-target="closest div" hx-swap="beforebegin ">
-      <input type="text" name="content" placeholder="Content" class="border border-gray-200 p-2 rounded-lg flex-1" />
+    <form class="flex flex-row space-x-3 w-full max-w-2xl px-4" hx-post="/todo" hx-target="#todo-list" hx-swap="afterbegin">
+      <input type="text" name="content" placeholder="Content" required class="border border-gray-200 p-2 rounded-lg flex-1" />
       <button type="submit" class="bg-blue-500 text-white p-2 rounded-lg">Add</button>
     </form>
   )
 }
 
-let lastId = 3;
 
 function TodoItem({title, isCompleted, id, deadline}:Todo){
   return(
@@ -70,7 +43,7 @@ function TodoItem({title, isCompleted, id, deadline}:Todo){
 
 function TodoList({todos}: {todos: Todo[]}){
   return (
-    <div class="flex flex-col space-y-3 w-full max-w-2xl px-4">
+    <div id="todo-list" class="flex flex-col space-y-3 w-full max-w-2xl px-4">
       {todos.map((todo) => (
         <TodoItem {...todo} />
       ))}
@@ -87,22 +60,27 @@ const app = new Elysia()
       </body>
     </BaseHtml>
   )).post("/clicked", <div>Clicked!</div>)
-  .get("/todo", ()=><TodoList todos={db} />)
-  .post("/todo/toggle/:id", ({ params}) => {
-    const todo = db.find((todo) => todo.id === Number(params.id));
-    if (todo){
-        todo.isCompleted = !todo.isCompleted;
-    return <TodoItem {...todo} />;
+  .get("/todo",  async ()=>{
+    const data = await db.select().from(todos).all();
+    return <TodoList todos={data} />
+  })
+  .post("/todo/toggle/:id", async ({ params, set }) => {
+    const oldTodo = await db.select().from(todos).where(eq(todos.id, Number(params.id))).get();
+    if (!oldTodo) {
+      set.status = 404;
+      return "Todo not found";
     }
-  },{params:t.Object({
+    const newTodo = await db.update(todos).set({isCompleted: !oldTodo.isCompleted}).where(eq(todos.id, Number(params.id))).returning().get();
+    return <TodoItem {...newTodo} />;
+  }
+  ,{params:t.Object({
     id:t.Numeric(),
   })})
 .delete(
   "/todo/:id",
-  ({ params }) => {
-    const index = db.findIndex((todo) => todo.id === params.id);
-    if (index !== -1) db.splice(index, 1);
-    return "";
+  async ({ params }) => {
+      await db.delete(todos).where(eq(todos.id, Number(params.id)))
+      return ""
   },
   {
     params: t.Object({
@@ -112,20 +90,17 @@ const app = new Elysia()
 )
 .post(
   "/todo",
-  ({ body }) => {
+  async ({ body }) => {
     if (body.content.length === 0) {
       throw new Error("Content cannot be empty");
     }
-    const newTodo={
-      id:lastId++,
-      title:body.content,
-      deadline: new Date(),
-      note: "Note 1",
-      isCompleted: false,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }
-    db.push(newTodo);
+    const newTodo = await db
+      .insert(todos)
+      .values({
+        title: body.content,
+      })
+      .returning()
+      .get();
     return <TodoItem {...newTodo} />;
   },
   {
@@ -134,6 +109,6 @@ const app = new Elysia()
     }),
   }
 )
-  .listen(3000);
+  .listen({ port: 3000, hostname: "0.0.0.0" });
 
-console.log(`🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`);
+console.log(`🦊 Elysia is running at http://localhost:${app.server?.port}`);

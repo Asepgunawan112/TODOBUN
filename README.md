@@ -1,15 +1,17 @@
-# Elysia with Bun runtime
+# TODO Bun
 
-## Getting Started
-To get started with this template, simply paste this command into your terminal:
-```bash
-bun create elysia ./elysia-example
-```
+## Menjalankan aplikasi
 
-## Development
-To start the development server run:
+Jalankan perintah dari folder `app`:
+
 ```bash
+bun install
+bun run db:push
 bun run dev
 ```
 
-Open http://localhost:3000/ with your browser to see the result.
+Pastikan file `.env` berisi `TURSO_DATABASE` (URL database Turso) dan
+`TURSO_AUTH_TOKEN` (token akses Turso). Buka [http://localhost:3000](http://localhost:3000)
+setelah server menampilkan alamat tersebut.
+
+`db:push` menyelaraskan tabel dari `src/db/schema.ts` ke database Turso.
